@@ -154,6 +154,7 @@ When you start a container with podman run, here's what happens:
 **Becomes independent**: Conmon disconnects from Podman so it can run on its own
 
 **Launches the container**: Conmon starts the actual container runtime (like runc) which runs your container
+
 **Stays on duty**: Conmon keeps running the whole time your container is alive
 
 **Handles communication**: It forwards anything you type into the container and shows you the container's output
