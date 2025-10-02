@@ -121,20 +121,54 @@ cat /proc/[PID]/status | grep State
 Linux processes form a tree structure:
 
 ```
-systemd (PID 1)
-├── sshd
-│   └── bash (your login shell)
-│       ├── vim
-│       └── sleep
-├── podman
-│   └── conmon
-│       └── container process (PID 1 in container)
-└── httpd
-    ├── httpd worker
-    └── httpd worker
+systemd (PID 1) - the "grandparent" of all processes
+├── sshd - handles remote connections
+│   └── bash - your terminal shell
+│       ├── vim - text editor you opened
+│       └── sleep - a command you ran
+├── podman - container tool
+│   └── conmon - watches over containers
+│       └── container process - the app running in your container
+└── httpd - web server
+    ├── httpd worker - handles web requests
+    └── httpd worker - handles more web requests
 ```
+Important Process Types
+
+**Orphan Process**: When a parent process dies before its child, the child gets "adopted" by systemd (PID 1). This is actually helpful because it prevents abandoned processes from piling up.
+
+**Zombie Process**: When a child process finishes but the parent hasn't acknowledged it yet. It's like a ghost - it shows up in the process list as <defunct> but doesn't use any real resources except its process ID number.
+
+**Daemon Process**: A background service that keeps running even after you log out. It has no terminal attached to it and usually gets adopted by systemd.
+
+**Container PID 1**: The main process inside a container. Its job is to clean up any zombie processes that appear. If this process dies, the whole container shuts down.
+
+**What is Conmon?**
+Conmon is a small helper program that babysits containers in Podman. Think of it as a nanny that watches over a single container.
+
+**What Conmon Does**
+When you start a container with podman run, here's what happens:
+
+**Starts up**: Podman creates a Conmon process to watch your container
+
+**Becomes independent**: Conmon disconnects from Podman so it can run on its own
+
+**Launches the container**: Conmon starts the actual container runtime (like runc) which runs your container
+**Stays on duty**: Conmon keeps running the whole time your container is alive
+
+**Handles communication**: It forwards anything you type into the container and shows you the container's output
+
+**Reports back**: When the container stops, Conmon records when it stopped and why
+
+Why Conmon Matters****
+
+**Tiny and efficient**: It's a very small program that barely uses any memory
+**No daemon needed**: Unlike Docker, Podman doesn't need a big background service running all the time - Conmon handles the monitoring instead
+**One per container**: Each container gets its own personal Conmon to watch over it
+**Simple communication**: It uses a socket (like a private phone line) to talk to Podman
 
 ### Key Concepts:
+
 
 **Orphan Process:**
 - Parent dies before child
