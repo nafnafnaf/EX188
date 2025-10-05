@@ -161,7 +161,7 @@ When you start a container with podman run, here's what happens:
 
 **Reports back**: When the container stops, Conmon records when it stopped and why
 
-Why Conmon Matters****
+***Why Conmon Matters ***
 
 **Tiny and efficient**: It's a very small program that barely uses any memory
 **No daemon needed**: Unlike Docker, Podman doesn't need a big background service running all the time - Conmon handles the monitoring instead
