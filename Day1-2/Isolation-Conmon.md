@@ -15,6 +15,18 @@ So, from the host's OS namespace PIDs are visible for containers but from the co
 
 ## HOW DO YOU KNOW THAT ? 
 How do we know that the host's PID 17938 coresponds to PID 1 in the container's namespace??
+
+The NSpid field only shows multiple PIDs when a process exists in multiple PID namespaces (nested namespaces).
+# From host run: sudo cat /proc/17940/status | grep NSpid*
+# From container run: podman inspect 7a2c --format '{{.State.Pid}}'
+and get:
+podman inspect 7a2c --format '{{.State.Pid}}'
+17940
+[dimi@localhost ~]$ sudo cat /proc/17940/status | grep NSpid*
+[sudo] password for dimi: 
+NSpid:	17940	1 --> the first number is the PID of the container seen in the host OS and the second number is the PID as seen from within the container.
+
+
 1) From host run: ### sudo cat /proc/17940/status | grep NSpid*
 this will give something like : NSpid:	17940	1
 meaning that host's PID 17940 has PID 1 inside the container.
@@ -29,6 +41,104 @@ podman top 7a2c -eo pid,comm
     226 ps
  This is what namespace / container isolation means.
 
+The Correct Relationship:
+conmon (PID 17938) ← parent
+    └── nginx (PID 17940) ← child (this is PID 1 INSIDE container)
+PID 1 inside the container IS PID 17940 on the host - they're the same process, not parent-child!
+Let me clarify:
+From your pstree output:
+conmon(17938)---nginx(17940)
+This means:
+
+17938 (conmon) = parent process
+17940 (nginx) = child process of conmon
+
+Inside the container:
+
+nginx sees itself as PID 1 (not 17940)
+It's the same physical process, just different PID numbers in different namespaces
+
+To answer your question directly:
+No, they are NOT in the same namespace!
+bash# Verify this:
+sudo readlink /proc/17938/ns/pid  # conmon namespace
+sudo readlink /proc/17940/ns/pid  # nginx namespace
+
+# Different namespace IDs = different namespaces!
+The Key Concept:
+Parent and child processes CAN be in different namespaces!
+When you create a new namespace:
+
+Parent process (conmon) stays in host namespace
+Child process (nginx) is put into new container namespace
+They're still parent-child, but in different namespaces
+
+`HOST NAMESPACE:`
+`├── systemd (PID 1)`
+`├── conmon (PID 17938) ← in HOST namespace`
+`├── nginx (PID 17940) ← ALSO in HOST namespace (visible to host)`
+    `└── nginx worker (PID 17968) ← ALSO in HOST namespace (visible to host)`
+
+`CONTAINER NAMESPACE (isolated view):`
+`└── nginx (PID 1) ← SAME process as host's 17940, but different PID in its namespace`
+    `└── nginx worker (PID 24/25) ← SAME processes as host's 17968, etc.`
+
+
+The Truth:
+
+PID 17940 is the host's view of the nginx process
+PID 1 is the container's view of the SAME nginx process
+Same physical process, two different PID numbers in two different namespaces
+
+Why the host can see it:
+The host (running in the root PID namespace) can see ALL processes on the system, including those in child namespaces. So:
+
+Host sees: PID 17940
+Container sees: PID 1
+Both refer to the exact same process in memory
+
+Proof:
+`bashsudo cat /proc/17940/status | grep NSpid`
+# Output: NSpid:  17940   1
+#                 ^^^^^   ^
+#                 host    container
+This shows: "This process is known as PID 17940 in the host namespace AND PID 1 in its own namespace"
+
+
+
+## The Complete Picture:##
+1. Container's View (Strong Isolation):
+
+✅ Container CANNOT see host processes
+✅ Container thinks it only has PIDs 1, 2, 3, etc.
+✅ Container cannot see or interact with PIDs outside its namespace
+✅ This is true isolation
+
+2. Host's View (Privileged Visibility):
+
+✅ Host CAN see all container processes (with different PIDs)
+✅ Host can kill, monitor, debug container processes
+✅ Host has "god mode" - sees everything
+⚠️ But containers are still isolated from EACH OTHER
+
+The Key Point:
+Isolation isn't just about hiding PIDs - it's about preventing interaction!
+Even though the host can see PID 17940:
+
+Container A cannot send signals to Container B's processes
+Container A cannot access Container B's memory
+Container A cannot see Container B's processes at all
+
+Example with 2 Containers:
+HOST VIEW:
+├── conmon(15183)---mariadbd(15185)    ← Container A
+├── conmon(17938)---nginx(17940)       ← Container B
+
+CONTAINER A VIEW (MariaDB):
+└── mariadbd (PID 1)  ← Cannot see nginx at all!
+
+CONTAINER B VIEW (Nginx):
+└── nginx (PID 1)     ← Cannot see mariadbd at all!
 
 
 ### Docker VS Podman isolation
