@@ -84,7 +84,7 @@ They're still parent-child, but in different namespaces
     `└── nginx worker (PID 24/25) ← SAME processes as host's 17968, etc.`
 
 
-The Truth:
+## The Truth:
 
 PID 17940 is the host's view of the nginx process
 PID 1 is the container's view of the SAME nginx process
@@ -98,12 +98,84 @@ Container sees: PID 1
 Both refer to the exact same process in memory
 
 Proof:
-`bashsudo cat /proc/17940/status | grep NSpid`
+```bash
+sudo cat /proc/17940/status | grep NSpid`
 # Output: NSpid:  17940   1
 #                 ^^^^^   ^
 #                 host    container
+```
 This shows: "This process is known as PID 17940 in the host namespace AND PID 1 in its own namespace"
 
+## OR DO THIS:
+
+```bash 
+dimi@localhost ~]$ pstree -p | grep -E "conmon|nginx"
+           |               |-conmon(15183)---mariadbd(15185)-+-{mariadbd}(15427)
+           |               |-conmon(17938)---nginx(17940)-+-nginx(17968)
+           |               |                              `-nginx(17969)
+           |               |-conmon(19831)---nginx(19833)-+-nginx(19861)
+           |               |                              `-nginx(19862)
+[dimi@localhost ~]$ 
+```
+# TO GET THE WHOLE RELATIONSHIP TREE FROM SYSTEMD TO CONTAINER
+```bash
+pstree -p -s 19831
+systemd(1)───systemd(5122)───conmon(19831)───nginx(19833)─┬─nginx(19861)
+                                                          └─nginx(19862)
+```
+# FULL TREE 
+```bash 
+pgrep -a conmon
+```
+```bash
+systemd(1)
+  └── systemd(5122)  ← conmon's parent
+      ├── conmon(15183)
+      ├── conmon(17938)
+      └── conmon(19831)
+```
+### conmon processes are not # direct children of SYSTEMD(1).
+### SYSTEMD(1) has several SYSTEMD() children and some of them have Conmon children.
+
+```bash 
+echo -e "\nFull trees:"
+for pid in $(pgrep conmon); do
+    pstree -p -s $pid
+done
+```
+### SEPERATION OF USERSPACES ROOT/ROOTLESS:
+
+## Why conmon is NOT a Direct Child of systemd(1):
+It's NOT because systemd(1) needs to stay alive to collect exit statuses. Here's the real reason:
+The Real Reason: ## User Session Isolation
+```bash
+systemd(1) [System-level, runs as root]
+  └── systemd(5122) [User-level, runs as user 'dimi']
+      └── conmon processes [Your containers, run as user 'dimi']
+```
+conmon processes are children of your USER systemd (5122) because:
+
+You're running rootless containers as user dimi
+User processes belong under user systemd, not system systemd
+Separation of privileges - your containers don't run as root
+Session management - when you log out, your user systemd can clean up your processes
+
+systemd(1) does reap zombies for its direct children
+systemd(5122) also reaps zombies for its children
+Each parent process is responsible for reaping its own children
+
+### If Conmon Were Direct Children of systemd(1):
+### You ran containers as root (rootful mode)
+### You used sudo podman run
+
+```bash
+systemd(1)
+  ├── sshd
+  ├── NetworkManager  
+  ├── conmon(15183) ← If this were direct child
+  ├── conmon(17938) ← If this were direct child
+  └── conmon(19831) ← If this were direct child
+```
 
 
 ## The Complete Picture:##

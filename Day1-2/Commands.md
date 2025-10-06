@@ -37,3 +37,14 @@ podman exec test ps aux
 sudo ls -l /proc/$(pgrep conmon)/ns/pid
 sudo ls -l /proc/$(podman inspect test --format '{{.State.Pid}}')/ns/pid
 # Different namespace IDs - conmon is in host namespace!
+
+# PROCESS AND THREADS - ONE PROCESS WITH MANY THREADS IN IT
+# See the pattern
+ps -T -o pid,tid,comm -p 20280 | head -10
+```bash
+PID     TID COMMAND
+  20280   20280 firefox          ← Main thread: TID = PID
+  20280   20281 GMUnitThread     ← Other threads: TID ≠ PID
+  20280   20282 Compositor       ← Different TID, same PID
+  20280   20283 ImageIO          ← Different TID, same PID
+```
