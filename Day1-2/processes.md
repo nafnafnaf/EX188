@@ -258,6 +258,9 @@ Answer these questions to test your understanding. Research and experiment on yo
 - What is the PID of systemd/init?
 - What is the PPID of your current shell?
 - Find a process in state 'S' - what is it waiting for?
+--->ps -p 5565 -o pid,stat,wchan,comm
+--->cat /proc/5565/wchan
+--->sudo strace -p 5565
 
 **Q7.** Create a zombie process:
 ```bash
@@ -265,6 +268,26 @@ Answer these questions to test your understanding. Research and experiment on yo
 (sleep 30 & exec sleep 300)
 ```
 While this is running, use `ps aux | grep defunct` to find the zombie. What is its state? Why is it a zombie?
+--->
+sleep 30 & exec sleep 300
+Here's the trick:
+
+Before exec:
+
+bash (PID 12345)
+  └── sleep 30 (PID 12346, background child)
+
+After exec sleep 300:
+
+sleep 300 (PID 12345) ← SAME PID as bash had!
+  └── sleep 30 (PID 12346) ← Still a child!
+Key Point: exec DOESN'T create a new process!
+
+## exec replaces the program code in the existing process
+## The PID stays the same
+The parent-child relationships are preserved
+sleep 30 still has the same PPID (parent PID)
+
 
 **Q8.** Examine process relationships:
 ```bash
@@ -273,6 +296,12 @@ pstree -p
 - Find the process tree for your shell
 - How many parent processes are between your shell and PID 1?
 - Run a container with `podman run -d nginx` and find it in the pstree output
+---> pstree -p | wc -l 
+---> pstree -p | grep -E "conmon|nginx"
+---> pstree -p -s 19833
+systemd(1)───systemd(5122)───conmon(19831)───nginx(19833)─┬─nginx(19861)
+                                                          └─nginx(19862)
+
 
 **Q9.** Check thread information:
 ```bash
@@ -283,6 +312,14 @@ ps -T -p [PID_of_firefox]
 - How many threads does it have?
 - What is the TID of the main thread?
 - How does TID compare to PID?
+ps -T -o pid,tid,comm -p 20280 | head -10
+```bash
+PID     TID COMMAND
+  20280   20280 firefox          ← Main thread: TID = PID
+  20280   20281 GMUnitThread     ← Other threads: TID ≠ PID
+  20280   20282 Compositor       ← Different TID, same PID
+  20280   20283 ImageIO          ← Different TID, same PID
+```
 
 **Q10.** Experiment with process states:
 ```bash
