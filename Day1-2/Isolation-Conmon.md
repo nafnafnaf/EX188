@@ -240,7 +240,30 @@ Proof - Compare them:
 Docker:
 bash# Start container
 docker run -d nginx
+### OR WE CAN SEE IT THIS WAY TOO:
+## Podman rootless:
+User systemd(5122) [user 'dimi']
+  └── conmon(19831) [runs as user 'dimi']
+      └── container process [isolated in namespaces, runs as user 'dimi']
 
+## Docker (traditional):
+systemd(1) [root]
+  └── dockerd(daemon) [runs as root]
+      └── containerd [runs as root]
+          └── container process [isolated in namespaces, but daemon is root]
+
+
+
+```bash
+User (dimi) → docker CLI → dockerd (root daemon) → container
+                              ↑
+                         Runs as ROOT
+```
+```bash
+User (dimi) → podman CLI → conmon (user process) → container
+                              ↑
+                         Runs as USER
+```
 # Check process tree
 pstree -p | grep containerd-shim
 # Shows: containerd-shim---nginx(PID)
