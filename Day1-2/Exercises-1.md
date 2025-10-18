@@ -422,13 +422,23 @@ wait
 - What are the PIDs of parent and child?
 - What is the PPID of the child?
 ## SOLUTION:
-
+```bash
+#!/bin/bash
+echo "Parent PID: $$"
+echo "Starting child process..."
+bash -c 'echo "Child PID: $$"; sleep 10' &
+CHILD_PID=$!
+echo "Child PID from parent: $CHILD_PID"
+echo "Parent continuing..."
+wait
+echo "Child has finished"
 
 ps -o pid,ppid,comm
     PID    PPID COMMAND
   21352   17399 bash -->1st shell pid and its parent's pid
   33285   21352 sleep -->command pid and its parent's pid
   33290   21352 ps -->command pid and its parent's pid
+  ```
 
 
 

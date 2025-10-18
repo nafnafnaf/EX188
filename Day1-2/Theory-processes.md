@@ -1,7 +1,21 @@
 # Week 1, Day 1-2: Process Fundamentals
 
 ## Theory Section
+## Key Takeaways
 
+✅ Processes are isolated instances of running programs with unique PIDs
+
+✅ fork() creates processes, exec() loads new programs
+
+✅ Process states (R, S, D, T, Z) indicate what a process is doing
+
+✅ Parent-child relationships form a tree rooted at PID 1
+
+✅ Zombie processes occur when parents don't call wait()
+
+✅ Container PID 1 must properly handle child processes
+
+✅ PIDs are namespace-specific - same process has different PIDs in different namespaces
 ### What are Processes?
 
 A **process** is an instance of a running program in Linux. When you execute a program, the kernel creates a process to run that program's code. Each process has its own memory space, execution context, and system resources.

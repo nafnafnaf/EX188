@@ -264,6 +264,7 @@ User (dimi) → podman CLI → conmon (user process) → container
                               ↑
                          Runs as USER
 ```
+
 # Check process tree
 pstree -p | grep containerd-shim
 # Shows: containerd-shim---nginx(PID)
